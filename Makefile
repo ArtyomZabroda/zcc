@@ -1,7 +1,7 @@
 all: create-bin-dir compile
 
 create-bin-dir:
-	mkdir bin
+	mkdir -p bin
 
 compile:
-	gcc main.c -o bin/zcc
+	gcc main.c -g -o bin/zcc
