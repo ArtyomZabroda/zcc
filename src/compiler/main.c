@@ -3,6 +3,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
+#include "chunk.h"
+#include "debug.h"
+#include "vm.h"
 
 struct ProgramArguments {
   char file_to_compile[201];
@@ -26,8 +29,6 @@ void ParseArguments(int argc, char** argv, struct ProgramArguments* parsed_args)
     strcpy(parsed_args->file_to_compile, argv[optind]);
     parsed_args->file_to_compile_len = strlen(parsed_args->output_file_name);
   }
-
-
 }
 
 int main(int argc, char** argv) {
@@ -35,9 +36,26 @@ int main(int argc, char** argv) {
 
   ParseArguments(argc, argv, &args);
 
-  printf("%s\n", args.file_to_compile);
-  printf("%s\n", args.output_file_name);
+  VM vm;
+  InitVM(&vm, args.output_file_name);
 
+  Chunk chunk;
+  InitChunk(&chunk);
+
+  int constant1 = AddConstant(&chunk, 1);
+  int constant2 = AddConstant(&chunk, 2);
+  PushBackChunk(&chunk, OP_CONST_INT, 123);
+  PushBackChunk(&chunk, constant1, 123);
+  PushBackChunk(&chunk, OP_CONST_INT, 123);
+  PushBackChunk(&chunk, constant2, 123);
+
+  DisassembleChunk(&chunk, "test chunk");
+
+  Compile(&vm, &chunk);
+
+  FreeChunk(&chunk);
+
+  FreeVM(&vm);
   return 0;
 }
 
