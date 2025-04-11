@@ -1,8 +1,8 @@
 #include "diag.h"
 #include <stdio.h>
 
-void DiagInit(struct DiagEngine *diag, struct BufferedFile *file) {
-  diag->file = file;
+void DiagInit(struct DiagEngine *diag, const char *source) {
+  diag->source = source;
 }
 
 void DiagReport(struct DiagEngine* diag, const char *current_ptr, enum DiagType diag_type) {

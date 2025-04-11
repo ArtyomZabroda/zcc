@@ -14,64 +14,53 @@ void setUp(void) {
 void tearDown(void) {
 }
 
-void OpenTestFile(const char *file_path, struct BufferedFile *file, struct DiagEngine *diag, struct Scanner *scanner) {
-  BufferedFileInit(file, file_path);
-  DiagInit(diag, file);
-  ScannerInit(scanner, file, diag);
-}
-
-void CloseTestFile(struct BufferedFile *file, struct Scanner *scanner) {
-  ScannerFree(scanner);
-  BufferedFileFree(file);
-}
-
 void test_Keywords(void) {
-  struct BufferedFile file;
+  const char source[] = 
+    "auto break case char const continue default do"
+    "double else enum extern float for goto if"
+    "int long register return short signed sizeof static"
+    "struct switch typedef union unsigned void volatile while";
+
   struct Scanner scanner;
-  struct DiagEngine diag;
   int i;
   struct Token tok;
 
-  OpenTestFile("tests/extra/scanner_keywords.txt", &file, &diag, &scanner);
+  ScannerInit(&scanner, source, sizeof(source), NULL);
 
+  /* we don't distinguish between identifiers and keyword on the scanning stage */
   while ((tok = Scan(&scanner)).type != TOKEN_TYPE_EOF) {
     TEST_ASSERT_EQUAL_INT(tok.type, TOKEN_TYPE_IDENTIFIER);
   }
-  
-  CloseTestFile(&file, &scanner);
 }
 
 void test_Identifiers(void) {
-  struct BufferedFile file;
+  const char source[] = 
+    "Hello _hello he110";
+
   struct Scanner scanner;
-  struct DiagEngine diag;
   int i;
   struct Token tok;
 
-  OpenTestFile("tests/extra/scanner_identifiers.txt", &file, &diag, &scanner);
+  ScannerInit(&scanner, source, sizeof(source), NULL);
 
   while ((tok = Scan(&scanner)).type != TOKEN_TYPE_EOF) {
     TEST_ASSERT_EQUAL_INT(tok.type, TOKEN_TYPE_IDENTIFIER);
   }
-  
-  CloseTestFile(&file, &scanner);
 }
 
 void test_PPNumbers(void) {
-  struct BufferedFile file;
+  const char source[] = 
+    "1 1.2 1.3f 1.4.5 1abcde 1e+1 1e-2 1E-3 1E+4 .123 .1e+1";
+
   struct Scanner scanner;
-  struct DiagEngine diag;
   int i;
   struct Token tok;
 
-  OpenTestFile("tests/extra/scanner_numbers.txt", &file, &diag, &scanner);
+  ScannerInit(&scanner, source, sizeof(source), NULL);
 
   while ((tok = Scan(&scanner)).type != TOKEN_TYPE_EOF) {
-    printf("%s\t%d\n", tok.data, tok.type);
-    TEST_ASSERT_EQUAL_INT(tok.type, TOKEN_TYPE_NUMERIC_CONSTANT);
+    TEST_ASSERT_EQUAL_INT(tok.type, TOKEN_TYPE_PPNUMBER);
   }
-  
-  CloseTestFile(&file, &scanner);
 }
 
 int main(void)

@@ -70,14 +70,13 @@ int main(int argc, char **argv) {
   }
 
   BufferedFileInit(&file, options.source_paths[0]);
-  DiagInit(&diag, &file);
-  ScannerInit(&scanner, &file, &diag);
+  DiagInit(&diag, file.buffer);
+  ScannerInit(&scanner, file.buffer, file.buf_size, &diag);
   
   if (options.print_scanner_output) {
     PrintScannerOutput(&scanner);
   }
 
-  ScannerFree(&scanner);
   BufferedFileFree(&file);
 
   FreeOptions(&options);

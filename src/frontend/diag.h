@@ -15,10 +15,10 @@ static const char* diag_descriptions[] = {
 };
 
 struct DiagEngine {
-  struct BufferedFile *file;
+  const char *source;
 };
 
-void DiagInit(struct DiagEngine *diag, struct BufferedFile *file);
+void DiagInit(struct DiagEngine *diag, const char *source);
 void DiagReport(struct DiagEngine* diag, const char *current_ptr, enum DiagType diag_type);
 
 #endif

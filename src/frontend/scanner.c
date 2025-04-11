@@ -5,37 +5,37 @@
 #include <ctype.h>
 #include <stdio.h>
 
-void ScannerInit(struct Scanner *scanner, struct BufferedFile *source_file, struct DiagEngine *diag_engine) {
-  scanner->source_file = source_file;
+void ScannerInit(struct Scanner *scanner, const char *source, int source_size, struct DiagEngine *diag_engine) {
+  scanner->source = source;
+  scanner->source_size = source_size;
   scanner->diag_engine = diag_engine;
-  scanner->lexeme_start = scanner->source_file->current;
+  scanner->current = source;
+  scanner->start = scanner->current;
   scanner->line = 1;
 }
 
-void ScannerFree(struct Scanner *scanner) {
-  BufferedFileFree(scanner->source_file);
-  scanner->lexeme_start = NULL;
-}
-
 char Advance(struct Scanner *scanner) {
-  char c = BufferedFileGetChar(scanner->source_file);
+  char c = *scanner->current++;
   return c;
 }
 
 void Rollback(struct Scanner *scanner, int n) {
-  BufferedFileRollBack(scanner->source_file, n);
+  int i;
+  for (i = 0; i < n && scanner->current != scanner->source; ++i) {
+    --scanner->current;
+  }
 }
 
 const char *CurPtr(struct Scanner *scanner) {
-  return scanner->source_file->current;
+  return scanner->current;
 }
 
 struct Token MakeToken(struct Scanner *scanner, enum TokenType type) {
   struct Token tok;
   tok.type = type;
-  tok.data = scanner->lexeme_start;
+  tok.data = scanner->start;
   tok.line = scanner->line;
-  tok.length = (int)(CurPtr(scanner) - scanner->lexeme_start);
+  tok.length = (int)(CurPtr(scanner) - scanner->start);
   return tok;
 }
 
@@ -71,7 +71,7 @@ struct Token ScanNumber(struct Scanner *scanner) {
     c = Advance(scanner);
   }
   Rollback(scanner, 1);
-  return MakeToken(scanner, TOKEN_TYPE_NUMERIC_CONSTANT);
+  return MakeToken(scanner, TOKEN_TYPE_PPNUMBER);
 }
 
 struct Token ScanCharConst(struct Scanner *scanner) {
@@ -121,7 +121,7 @@ struct Token ScanCharConst(struct Scanner *scanner) {
 
 struct Token Scan(struct Scanner *scanner) {
   char c;
-  scanner->lexeme_start = CurPtr(scanner);
+  scanner->start = CurPtr(scanner);
 
   c = Advance(scanner);
 
@@ -129,7 +129,7 @@ struct Token Scan(struct Scanner *scanner) {
     switch (c) {
       case 0:
         /* Hit the end of file? */
-        if (CurPtr(scanner) == scanner->source_file->buffer + scanner->source_file->buf_size) {
+        if (CurPtr(scanner) == scanner->source + scanner->source_size) {
           return MakeToken(scanner, TOKEN_TYPE_EOF);
         }
         else {
@@ -140,12 +140,12 @@ struct Token Scan(struct Scanner *scanner) {
       case ' ':
       case '\r':
       case '\t':
-        scanner->lexeme_start = CurPtr(scanner);
+        scanner->start = CurPtr(scanner);
         c = Advance(scanner);
         break;
       case '\n':
         ++scanner->line;
-        scanner->lexeme_start = CurPtr(scanner);
+        scanner->start = CurPtr(scanner);
         c = Advance(scanner);
         break;
       case 'A': case 'B': case 'C': case 'D': case 'E': case 'F': case 'G': case 'H': case 'I': case 'J': case 'K': /* case 'L':*/ case 'M':
@@ -157,6 +157,14 @@ struct Token Scan(struct Scanner *scanner) {
       case '0': case '1': case '2': case '3': case '4':
       case '5': case '6': case '7': case '8': case '9':
         return ScanNumber(scanner);
+      case '.':
+        c = Advance(scanner);
+        if (isdigit(c)) {
+          return ScanNumber(scanner);
+        } else {
+          Rollback(scanner, 1);
+          return MakeToken(scanner, TOKEN_TYPE_PERIOD);
+        }
       case '\'':
         return ScanCharConst(scanner);
       default:
