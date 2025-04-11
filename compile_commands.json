@@ -1,0 +1,23 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-g",
+      "-std=c89",
+      "-pedantic",
+      "-O0",
+      "-Werror",
+      "-I",
+      "/home/azabroda/zcc/src/common",
+      "-I",
+      "/home/azabroda/zcc/src/frontend",
+      "-o",
+      "/home/azabroda/zcc/build/zcc",
+      "/home/azabroda/zcc/src/main.c"
+    ],
+    "directory": "/home/azabroda/zcc",
+    "file": "/home/azabroda/zcc/src/main.c",
+    "output": "/home/azabroda/zcc/build/zcc"
+  }
+]
