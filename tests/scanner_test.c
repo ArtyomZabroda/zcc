@@ -1,7 +1,5 @@
-#include "buffered_file.h"
-#include "diag.h"
 #include "token.h"
-#include "unity/unity.h"
+#include "unity.h"
 #include "scanner.h"
 #include <stdio.h>
 
