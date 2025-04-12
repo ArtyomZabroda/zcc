@@ -2,6 +2,7 @@
 #include "unity.h"
 #include "scanner.h"
 #include <stdio.h>
+#include <stdlib.h>
 
 
 
@@ -53,6 +54,7 @@ void test_PPNumbers(void) {
   struct Scanner scanner;
   int i;
   struct Token tok;
+  void* leak = malloc(99);
 
   ScannerInit(&scanner, source, sizeof(source), NULL);
 

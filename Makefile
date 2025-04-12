@@ -56,15 +56,12 @@ $(BUILD_DIR)/%.o: $(COMMON_SOURCES_DIR)/%.c
 # Rule to run all test executables
 test: directories $(TEST_EXECUTABLES) 
 	@for executable in $(TEST_EXECUTABLES); do \
-		$$executable; \
+		valgrind --leak-check=full --errors-for-leak-kinds=all --error-exitcode=1 $$executable; \
 	done
 
 $(TEST_EXECUTABLES): $(BUILD_DIR)/tests/%: $(TESTS_SOURCES_PATHS) $(COMMON) $(FRONTEND)
 	$(CC) $(TESTS_SOURCES_PATHS) $(PWD)/ext/Unity/src/unity.c $(TESTS_FLAGS) -I $(PWD)/ext/Unity/src -I $(COMMON_SOURCES_DIR) -I $(FRONTEND_SOURCES_DIR) -o $@ -lcommon -lfrontend
-
-valgrind: $(EXEC)
-	valgrind --leak-check=yes $(EXEC) $(PWD)/tests/functional/hello_world.c
-
+	
 -include $(wildcard $(BUILD_DIR)/*.d)
 
 clean:
