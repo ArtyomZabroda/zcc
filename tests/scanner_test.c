@@ -54,7 +54,6 @@ void test_PPNumbers(void) {
   struct Scanner scanner;
   int i;
   struct Token tok;
-  void* leak = malloc(99);
 
   ScannerInit(&scanner, source, sizeof(source), NULL);
 
