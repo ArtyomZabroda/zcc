@@ -60,7 +60,7 @@ test: directories $(TEST_EXECUTABLES)
 	done
 
 $(TEST_EXECUTABLES): $(BUILD_DIR)/tests/%: $(TESTS_SOURCES_PATHS) $(COMMON) $(FRONTEND)
-	$(CC) $(TESTS_SOURCES_PATHS) ext/Unity/src/unity.c $(TESTS_FLAGS) -I ext/Unity/src -I $(COMMON_SOURCES_DIR) -I $(FRONTEND_SOURCES_DIR) -o $@ -lcommon -lfrontend
+	$(CC) $(TESTS_SOURCES_PATHS) $(PWD)/ext/Unity/src/unity.c $(TESTS_FLAGS) -I $(PWD)/ext/Unity/src -I $(COMMON_SOURCES_DIR) -I $(FRONTEND_SOURCES_DIR) -o $@ -lcommon -lfrontend
 
 valgrind: $(EXEC)
 	valgrind --leak-check=yes $(EXEC) $(PWD)/tests/functional/hello_world.c
