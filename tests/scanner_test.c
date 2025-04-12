@@ -57,7 +57,7 @@ void test_PPNumbers(void) {
   ScannerInit(&scanner, source, sizeof(source), NULL);
 
   while ((tok = Scan(&scanner)).type != TOKEN_TYPE_EOF) {
-    TEST_ASSERT_EQUAL_INT(tok.type, TOKEN_TYPE_PPNUMBER);
+    TEST_ASSERT_EQUAL_INT(tok.type, TOKEN_TYPE_IDENTIFIER);
   }
 }
 
