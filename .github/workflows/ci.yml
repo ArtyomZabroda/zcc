@@ -19,7 +19,7 @@ jobs:
           submodules: recursive
       - uses: awalsh128/cache-apt-pkgs-action@latest
         with:
-          packages: valgrind
+          packages: valgrind libcmocka-dev
           version: 1.0
       - run: |
             make test
