@@ -89,27 +89,27 @@ struct Token ScanCharConst(struct Scanner *scanner) {
           c = Advance(scanner);
         }
         Rollback(scanner, 1);
-      }
-      else if (c == 'x') {
+      } else if (c == 'x') {
         c = Advance(scanner);
         if (!isxdigit(c)) {
           Rollback(scanner, 1);
-          DiagReport(scanner->diag_engine, CurPtr(scanner), DIAG_TYPE_INCORRECT_HEX_ESCAPE_SEQUENCE);
+          DiagReport(scanner->diag_engine, CurPtr(scanner),
+                     DIAG_TYPE_INCORRECT_HEX_ESCAPE_SEQUENCE);
           return MakeToken(scanner, TOKEN_TYPE_UNKNOWN);
         }
         while (c >= '0' && c <= '9' && c >= 'a' && c <= 'f') {
           c = Advance(scanner);
         }
         Rollback(scanner, 1);
+      } else if (c != '\'' && c != '\"' && c != '?' && c != '\\' && c != 'a' &&
+                 c != 'b' && c != 'f' && c != 'n' && c != 'r' && c != 't' &&
+                 c != 'v') {
+        Rollback(scanner, 1);
+        DiagReport(scanner->diag_engine, CurPtr(scanner),
+                   DIAG_TYPE_INCORRECT_ESCAPE_SEQUENCE);
+        return MakeToken(scanner, TOKEN_TYPE_UNKNOWN);
       }
-      else if (c != '\'' && c != '\"' && c != '?' && c != '\\' &&
-        c != 'a' && c != 'b' && c != 'f' && c != 'n' && c != 'r' && c != 't' && c != 'v') {
-          Rollback(scanner, 1);
-          DiagReport(scanner->diag_engine, CurPtr(scanner), DIAG_TYPE_INCORRECT_ESCAPE_SEQENCE);
-          return MakeToken(scanner, TOKEN_TYPE_UNKNOWN);
-      }
-    }
-    else if (c == '\n' || c == '\0') {
+    } else if (c == '\n' || c == '\0') {
       Rollback(scanner, 1);
       DiagReport(scanner->diag_engine, CurPtr(scanner), DIAG_TYPE_UNTERMINATED_CHAR_CONST);
       return MakeToken(scanner, TOKEN_TYPE_UNKNOWN);
@@ -117,6 +117,47 @@ struct Token ScanCharConst(struct Scanner *scanner) {
     c = Advance(scanner);
   }
   return MakeToken(scanner, TOKEN_TYPE_CHAR_CONST);
+}
+
+struct Token ScanStringLiteral(struct Scanner *scanner) {
+  char c = Advance(scanner);
+  while (c != '\"') {
+    if (c == '\\') {
+      c = Advance(scanner);
+      if (c >= '0' && c < '8') {
+        c = Advance(scanner);
+        while (c >= '0' && c < '8') {
+          c = Advance(scanner);
+        }
+        Rollback(scanner, 1);
+      } else if (c == 'x') {
+        c = Advance(scanner);
+        if (!isxdigit(c)) {
+          Rollback(scanner, 1);
+          DiagReport(scanner->diag_engine, CurPtr(scanner),
+                     DIAG_TYPE_INCORRECT_HEX_ESCAPE_SEQUENCE);
+          return MakeToken(scanner, TOKEN_TYPE_UNKNOWN);
+        }
+        while (c >= '0' && c <= '9' && c >= 'a' && c <= 'f') {
+          c = Advance(scanner);
+        }
+        Rollback(scanner, 1);
+      } else if (c != '\'' && c != '\"' && c != '?' && c != '\\' && c != 'a' &&
+                 c != 'b' && c != 'f' && c != 'n' && c != 'r' && c != 't' &&
+                 c != 'v') {
+        Rollback(scanner, 1);
+        DiagReport(scanner->diag_engine, CurPtr(scanner),
+                   DIAG_TYPE_INCORRECT_ESCAPE_SEQUENCE);
+        return MakeToken(scanner, TOKEN_TYPE_UNKNOWN);
+      }
+    } else if (c == '\n' || c == '\0') {
+      Rollback(scanner, 1);
+      DiagReport(scanner->diag_engine, CurPtr(scanner), DIAG_TYPE_UNTERMINATED_STRING_LITERAL);
+      return MakeToken(scanner, TOKEN_TYPE_UNKNOWN);
+    }
+    c = Advance(scanner);
+  }
+  return MakeToken(scanner, TOKEN_TYPE_STRING_LITERAL);
 }
 
 struct Token Scan(struct Scanner *scanner) {
@@ -134,6 +175,7 @@ struct Token Scan(struct Scanner *scanner) {
         }
         else {
           DiagReport(scanner->diag_engine, CurPtr(scanner), DIAG_TYPE_NULL_IN_FILE);
+          scanner->start = CurPtr(scanner);
           c = Advance(scanner);
         }
         break;
@@ -167,6 +209,26 @@ struct Token Scan(struct Scanner *scanner) {
         }
       case '\'':
         return ScanCharConst(scanner);
+      case 'L':
+        c = Advance(scanner);
+        if (c == '\'') {
+          DiagReport(scanner->diag_engine, CurPtr(scanner), DIAG_TYPE_WIDE_CHAR_CONSTANTS_UNSUPPORTED);
+          while (c != '\'') {
+            c = Advance(scanner);
+          }
+          Rollback(scanner, 1);
+          return MakeToken(scanner, TOKEN_TYPE_UNKNOWN);
+        } else if (c == '\"') {
+          DiagReport(scanner->diag_engine, CurPtr(scanner), DIAG_TYPE_WIDE_STRING_LITERALS_UNSUPPORTED);
+          while (c != '\"') {
+            c = Advance(scanner);
+          }
+          Rollback(scanner, 1);
+          return MakeToken(scanner, TOKEN_TYPE_UNKNOWN);
+        } else return ScanIdentifier(scanner);
+        break;
+      case '\"':
+        return ScanStringLiteral(scanner);
       default:
         return MakeToken(scanner, TOKEN_TYPE_UNKNOWN);
     }
