@@ -21,7 +21,7 @@ struct Options {
 void InitOptions(struct Options *options) {
   DYNARRAY_INIT(options->source_paths, options->source_paths_size, options->source_paths_alloc);
   options->output_path = NULL;
-  options->print_scanner_output = 0;/* TODO: Free options */ 
+  options->print_scanner_output = 0;
 }
 
 void FreeOptions(struct Options *options) {

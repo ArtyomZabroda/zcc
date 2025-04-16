@@ -1,0 +1,25 @@
+name: 'CI'
+on:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4         # checkout the repo
+        with:
+          submodules: recursive
+      - run: |
+            make
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4         # checkout the repo
+        with:
+          submodules: recursive
+      - uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: valgrind
+          version: 1.0
+      - run: |
+            make test

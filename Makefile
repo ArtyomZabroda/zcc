@@ -55,10 +55,8 @@ $(BUILD_DIR)/%.o: $(COMMON_SOURCES_DIR)/%.c
 
 # Rule to run all test executables
 test: directories $(TEST_EXECUTABLES) 
-	@echo "Tests source paths: $(TESTS_SOURCES_PATHS)"
-	for executable in $(TEST_EXECUTABLES); do \
-		echo "Running $$executable..."; \
-		$$executable; \
+	@for executable in $(TEST_EXECUTABLES); do \
+		valgrind --leak-check=full --errors-for-leak-kinds=all --error-exitcode=1 $$executable; \
 	done
 
 $(TEST_EXECUTABLES): $(BUILD_DIR)/tests/%: $(TESTS_SOURCES_PATHS) $(COMMON) $(FRONTEND)
