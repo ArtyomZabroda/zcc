@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <ctype.h>
 #include <stdio.h>
-
+#include <string.h>
 void ScannerInit(struct Scanner *scanner, const char *source, int source_size, struct DiagEngine *diag_engine) {
   scanner->source = source;
   scanner->source_size = source_size;
@@ -12,6 +12,9 @@ void ScannerInit(struct Scanner *scanner, const char *source, int source_size, s
   scanner->current = source;
   scanner->start = scanner->current;
   scanner->line = 1;
+  scanner->is_at_start_of_line = 0;
+  scanner->pp_mode = 0;
+  scanner->angled_include = 0;
 }
 
 char Advance(struct Scanner *scanner) {
@@ -121,7 +124,8 @@ struct Token ScanCharConst(struct Scanner *scanner) {
 
 struct Token ScanStringLiteral(struct Scanner *scanner) {
   char c = Advance(scanner);
-  while (c != '\"') {
+  char terminator = scanner->angled_include ? '>' : '\"';
+  while (c != terminator) {
     if (c == '\\') {
       c = Advance(scanner);
       if (c >= '0' && c < '8') {
@@ -157,14 +161,63 @@ struct Token ScanStringLiteral(struct Scanner *scanner) {
     }
     c = Advance(scanner);
   }
-  return MakeToken(scanner, TOKEN_TYPE_STRING_LITERAL);
+  if (scanner->angled_include) {
+    return MakeToken(scanner, TOKEN_TYPE_HEADER_NAME);
+  } else {
+    return MakeToken(scanner, TOKEN_TYPE_STRING_LITERAL);
+  }
+}
+
+void SkipBlockComment(struct Scanner *scanner) {
+  for (;;) {
+    char c = Advance(scanner);
+    if (c == '*') {
+      c = Advance(scanner);
+      if (c == '/') {
+        break;
+      } else Rollback(scanner, 2);
+    }
+    else if (c == '\n') {
+      ++scanner->line;
+    }
+
+    if (CurPtr(scanner) == scanner->source + scanner->source_size) {
+      DiagReport(scanner->diag_engine, CurPtr(scanner), DIAG_TYPE_UNTERMINATED_BLOCK_COMMENT);
+      break;
+    }
+  }
+  Rollback(scanner, 1);
+  scanner->start = CurPtr(scanner);
+}
+
+struct Token HandleDirective(struct Scanner *scanner) {
+  struct Token tok = Scan(scanner);
+  if (tok.type = TOKEN_TYPE_IDENTIFIER && memcmp(tok.data, "include", 7 * sizeof(char))) {
+    tok = Scan(scanner);
+    if (tok.type == TOKEN_TYPE_STRING_LITERAL) {
+      return tok;
+    }
+    else if (tok.type == TOKEN_TYPE_LESS) {
+      scanner->angled_include = 1;
+      tok = Scan(scanner);
+      if (tok.type == TOKEN_TYPE_HEADER_NAME) {
+        return tok;
+      }
+    }
+    DiagReport(scanner->diag_engine, CurPtr(scanner), DIAG_TYPE_NO_FILE_NAME);
+    return MakeToken(scanner, TOKEN_TYPE_UNKNOWN);
+  }
 }
 
 struct Token Scan(struct Scanner *scanner) {
+  struct Token tok;
   char c;
+  int is_at_start_of_line = scanner->is_at_start_of_line;
+
   scanner->start = CurPtr(scanner);
 
   c = Advance(scanner);
+  scanner->is_at_start_of_line = 0;
 
   for (;;) {
     switch (c) {
@@ -189,6 +242,7 @@ struct Token Scan(struct Scanner *scanner) {
         ++scanner->line;
         scanner->start = CurPtr(scanner);
         c = Advance(scanner);
+        scanner->pp_mode = 0;
         break;
       case 'A': case 'B': case 'C': case 'D': case 'E': case 'F': case 'G': case 'H': case 'I': case 'J': case 'K': /* case 'L':*/ case 'M':
       case 'N': case 'O': case 'P': case 'Q': case 'R': case 'S': case 'T': case 'U': case 'V': case 'W': case 'X': case 'Y': case 'Z':
@@ -201,7 +255,15 @@ struct Token Scan(struct Scanner *scanner) {
         return ScanNumber(scanner);
       case '.':
         c = Advance(scanner);
-        if (isdigit(c)) {
+        if (c == '.') {
+          c = Advance(scanner);
+          if (c == '.') {
+            return MakeToken(scanner, TOKEN_TYPE_ELLIPSIS);
+          } else {
+            Rollback(scanner, 2);
+          }
+        }
+        else if (isdigit(c)) {
           return ScanNumber(scanner);
         } else {
           Rollback(scanner, 1);
@@ -229,6 +291,169 @@ struct Token Scan(struct Scanner *scanner) {
         break;
       case '\"':
         return ScanStringLiteral(scanner);
+      case '[':
+        return MakeToken(scanner, TOKEN_TYPE_LSQUARE);
+      case ']':
+       return MakeToken(scanner, TOKEN_TYPE_RSQUARE);
+      case '(':
+        return MakeToken(scanner, TOKEN_TYPE_LPAREN);
+      case ')':
+        return MakeToken(scanner, TOKEN_TYPE_RPAREN);
+      case '-':
+        c = Advance(scanner);
+        switch (c) {
+          case '>':
+            return MakeToken(scanner, TOKEN_TYPE_ARROW);
+          case '-':
+            return MakeToken(scanner, TOKEN_TYPE_MINUS_MINUS);
+          case '=':
+            return MakeToken(scanner, TOKEN_TYPE_MINUS_EQUAL);
+          default:
+            Rollback(scanner, 1);
+            return MakeToken(scanner, TOKEN_TYPE_MINUS);
+        }
+      case '+':
+        c = Advance(scanner);
+        switch (c) {
+          case '+':
+            return MakeToken(scanner, TOKEN_TYPE_PLUS_PLUS);
+          case '=':
+            return MakeToken(scanner, TOKEN_TYPE_PLUS_EQUAL);
+          default:
+            Rollback(scanner, 1);
+            return MakeToken(scanner, TOKEN_TYPE_PLUS);
+        }
+      case '&':
+        c = Advance(scanner);
+        switch (c) {
+          case '&':
+            return MakeToken(scanner, TOKEN_TYPE_AMP_AMP);
+          case '=':
+            return MakeToken(scanner, TOKEN_TYPE_AMP_EQUAL);
+          default:
+            Rollback(scanner, 1);
+            return MakeToken(scanner, TOKEN_TYPE_AMP);
+        }
+      case '*':
+        c = Advance(scanner);
+        if (c == '=') {
+          return MakeToken(scanner, TOKEN_TYPE_STAR_EQUAL);
+        } else {
+          Rollback(scanner, 1);
+          return MakeToken(scanner, TOKEN_TYPE_STAR);
+        }
+      case '~':
+        return MakeToken(scanner, TOKEN_TYPE_TILDE);
+      case '!':
+        c = Advance(scanner);
+        if (c == '=') {
+          return MakeToken(scanner, TOKEN_TYPE_EXCLAIM_EQUAL);
+        } else {
+          Rollback(scanner, 1);
+          return MakeToken(scanner, TOKEN_TYPE_EXCLAIM);
+        }
+      case '/':
+        c = Advance(scanner);
+        switch (c) {
+          case '*':
+            SkipBlockComment(scanner);
+          case '=':
+            return MakeToken(scanner, TOKEN_TYPE_SLASH_EQUAL);
+          default:
+            Rollback(scanner, 1);
+            return MakeToken(scanner, TOKEN_TYPE_SLASH);
+        }
+      case '%':
+        c = Advance(scanner);
+        if (c == '=') {
+          return MakeToken(scanner, TOKEN_TYPE_PERCENT_EQUAL);
+        } else {
+          Rollback(scanner, 1);
+          return MakeToken(scanner, TOKEN_TYPE_PERCENT);
+        }
+      case '<':
+        c = Advance(scanner);
+        switch (c) {
+          case '<':
+            c = Advance(scanner);
+            if (c == '=') {
+              return MakeToken(scanner, TOKEN_TYPE_LESS_LESS_EQUAL);
+            } else {
+              Rollback(scanner, 1);
+              return MakeToken(scanner, TOKEN_TYPE_LESS_LESS);
+            }
+          case '=':
+            return MakeToken(scanner, TOKEN_TYPE_LESS_EQUAL);
+          default:
+            return MakeToken(scanner, TOKEN_TYPE_LESS);
+        }
+        case '>':
+        c = Advance(scanner);
+        switch (c) {
+          case '>':
+            c = Advance(scanner);
+            if (c == '=') {
+              return MakeToken(scanner, TOKEN_TYPE_GREATER_GREATER_EQUAL);
+            } else {
+              Rollback(scanner, 1);
+              return MakeToken(scanner, TOKEN_TYPE_GREATER_GREATER);
+            }
+          case '=':
+            return MakeToken(scanner, TOKEN_TYPE_GREATER_EQUAL);
+          default:
+            return MakeToken(scanner, TOKEN_TYPE_GREATER);
+        }
+      case '=':
+        c = Advance(scanner);
+        if (c == '=') {
+          return MakeToken(scanner, TOKEN_TYPE_EQUAL_EQUAL);
+        } else {
+          Rollback(scanner, 1);
+          return MakeToken(scanner, TOKEN_TYPE_EQUAL);
+        }
+      case '^':
+        c = Advance(scanner);
+        if (c == '=') {
+          return MakeToken(scanner, TOKEN_TYPE_CARET_EQUAL);
+        } else {
+          Rollback(scanner, 1);
+          return MakeToken(scanner, TOKEN_TYPE_CARET);
+        }
+        case '|':
+        c = Advance(scanner);
+        switch (c) {
+          case '|':
+            return MakeToken(scanner, TOKEN_TYPE_PIPE_PIPE);
+          case '=':
+            return MakeToken(scanner, TOKEN_TYPE_PIPE_EQUAL);
+          default:
+            Rollback(scanner, 1);
+            return MakeToken(scanner, TOKEN_TYPE_PIPE);
+        }
+      case '?':
+        return MakeToken(scanner, TOKEN_TYPE_QUESTION);
+      case ':':
+        return MakeToken(scanner, TOKEN_TYPE_COLON);
+      case ',':
+        return MakeToken(scanner, TOKEN_TYPE_COMMA);
+      case '#':
+        /* Check if this is preprocessor directive */
+        if (is_at_start_of_line) {
+          scanner->pp_mode = 1;
+        }
+        c = Advance(scanner);
+        if (c == '#') {
+          return MakeToken(scanner, TOKEN_TYPE_HASH_HASH);
+        } else {
+          Rollback(scanner, 1);
+          return MakeToken(scanner, TOKEN_TYPE_HASH);
+        }
+      case '{':
+        return MakeToken(scanner, TOKEN_TYPE_LBRACE);
+      case '}':
+        return MakeToken(scanner, TOKEN_TYPE_RBRACE);
+      case ';':
+        return MakeToken(scanner, TOKEN_TYPE_SEMICOLON);
       default:
         return MakeToken(scanner, TOKEN_TYPE_UNKNOWN);
     }

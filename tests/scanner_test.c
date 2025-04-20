@@ -275,6 +275,201 @@ void TestWideCharUnsupportedStringLiteral(void **state) {
   assert_int_equal(tok.type, TOKEN_TYPE_UNKNOWN);
 }
 
+void TestValidOperators(void **state) {
+  struct TestState *teststate = *state;
+  const char source[] = 
+  "[ ] ( ) . ->"
+  "++ -- & * + - ~ ! sizeof"
+  "/ % << >> < > <= >= == != ^ | && || ? :"
+  "= *= /= %= += -= <<= >>= &= ^= |= , # ##";
+
+  int i;
+  struct Token tok;
+  ScannerInit(&teststate->scanner, source, sizeof(source), &teststate->diag);
+
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_LSQUARE);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_RSQUARE);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_LPAREN);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_RPAREN);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_PERIOD);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_ARROW);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_PLUS_PLUS);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_MINUS_MINUS);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_AMP);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_STAR);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_PLUS);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_MINUS);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_TILDE);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_EXCLAIM);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_IDENTIFIER); /* treat sizeof as keyword */ 
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_SLASH);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_PERCENT);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_LESS_LESS);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_GREATER_GREATER);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_LESS);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_GREATER);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_LESS_EQUAL);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_GREATER_EQUAL);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_EQUAL_EQUAL);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_EXCLAIM_EQUAL);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_CARET);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_PIPE);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_AMP_AMP);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_PIPE_PIPE);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_QUESTION);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_COLON);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_EQUAL);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_STAR_EQUAL);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_SLASH_EQUAL);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_PERCENT_EQUAL);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_PLUS_EQUAL);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_MINUS_EQUAL);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_LESS_LESS_EQUAL);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_GREATER_GREATER_EQUAL);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_AMP_EQUAL);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_CARET_EQUAL);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_PIPE_EQUAL);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_COMMA);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_HASH);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_HASH_HASH);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_EOF);
+}
+
+void TestValidPunctuators(void **state) {
+  struct TestState *teststate = *state;
+  const char source[] = "[ ] ( ) { } * , : = ; ... #";
+  int i;
+  struct Token tok;
+  ScannerInit(&teststate->scanner, source, sizeof(source), &teststate->diag);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_LSQUARE);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_RSQUARE);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_LPAREN);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_RPAREN);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_LBRACE);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_RBRACE);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_STAR);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_COMMA);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_COLON);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_EQUAL);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_SEMICOLON);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_ELLIPSIS);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_HASH);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_EOF);
+}
+
+void TestValidComments(void **state) {
+  struct TestState *teststate = *state;
+  const char source[] = "/*Hello, world!*/i"; /* notice identifier i after comment */
+  char expected[] = "i";
+  struct Token tok;
+
+  ScannerInit(&teststate->scanner, source, sizeof(source), &teststate->diag);
+  tok = Scan(&teststate->scanner);
+
+  /* check that the comment was skipped */
+  assert_int_equal(tok.type, TOKEN_TYPE_IDENTIFIER);
+  assert_int_equal(tok.length, 1);
+  assert_memory_equal(tok.data, expected, 1);
+}
+
+void TestCommentInStringIsNotSkipped(void **state) {
+  struct TestState *teststate = *state;
+  const char source[] = "\"/*hello*/\"";
+  struct Token tok;
+
+  ScannerInit(&teststate->scanner, source, sizeof(source), &teststate->diag);
+  tok = Scan(&teststate->scanner);
+  /* check that the "comment" is not skipped and used by the string literal */
+  assert_int_equal(tok.type, TOKEN_TYPE_IDENTIFIER);
+  assert_int_equal(tok.length, 12);
+  assert_memory_equal(tok.data, source, 12);
+}
+
+void TestValidHeaderNames(void **state) {
+  struct TestState *teststate = *state;
+  const char source[] = "#include <stdio.h>\n#include \"hello.h\"";
+  int i;
+  struct Token tok;
+
+  ScannerInit(&teststate->scanner, source, sizeof(source), &teststate->diag);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_HASH);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_IDENTIFIER);
+  assert_memory_equal(tok.data, "include", 7);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_HEADER_NAME);
+  assert_memory_equal(tok.data, "<stdio.h>", 9);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_HASH);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_IDENTIFIER);
+  assert_memory_equal(tok.data, "include", 7);
+  tok = Scan(&teststate->scanner);
+  assert_int_equal(tok.type, TOKEN_TYPE_IDENTIFIER);
+  assert_memory_equal(tok.data, "\"hello.h\"", 9);
+}
+
 int main(void) {
   const struct CMUnitTest scanner_tests[] = {
       cmocka_unit_test(TestValidKeywords),
@@ -295,7 +490,12 @@ int main(void) {
       cmocka_unit_test(TestSingleBackSlashInStringLiteral),
       cmocka_unit_test(TestInvalidHexEscapeSequenceInStringLiteral),
       cmocka_unit_test(TestInvalidEscapeSequenceInStringLiteral),
-      cmocka_unit_test(TestWideCharUnsupportedStringLiteral)
+      cmocka_unit_test(TestWideCharUnsupportedStringLiteral),
+      cmocka_unit_test(TestValidOperators),
+      cmocka_unit_test(TestValidPunctuators),
+      cmocka_unit_test(TestValidComments),
+      cmocka_unit_test(TestCommentInStringIsNotSkipped),
+      cmocka_unit_test(TestValidHeaderNames)
   };
   return cmocka_run_group_tests(scanner_tests, ScannerGroupSetup, ScannerGroupTeardown);
 }
