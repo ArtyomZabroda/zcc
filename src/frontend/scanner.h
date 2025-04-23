@@ -12,7 +12,6 @@ struct Scanner {
   const char *current;
   int line;
   int is_at_start_of_line;
-  int pp_mode;
   int angled_include;
 };
 

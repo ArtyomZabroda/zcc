@@ -440,9 +440,9 @@ void TestCommentInStringIsNotSkipped(void **state) {
   ScannerInit(&teststate->scanner, source, sizeof(source), &teststate->diag);
   tok = Scan(&teststate->scanner);
   /* check that the "comment" is not skipped and used by the string literal */
-  assert_int_equal(tok.type, TOKEN_TYPE_IDENTIFIER);
-  assert_int_equal(tok.length, 12);
-  assert_memory_equal(tok.data, source, 12);
+  assert_int_equal(tok.type, TOKEN_TYPE_STRING_LITERAL);
+  assert_int_equal(tok.length, 11);
+  assert_memory_equal(tok.data, source, 11);
 }
 
 void TestValidHeaderNames(void **state) {

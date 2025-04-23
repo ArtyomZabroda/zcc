@@ -13,7 +13,6 @@ void ScannerInit(struct Scanner *scanner, const char *source, int source_size, s
   scanner->start = scanner->current;
   scanner->line = 1;
   scanner->is_at_start_of_line = 0;
-  scanner->pp_mode = 0;
   scanner->angled_include = 0;
 }
 
@@ -47,12 +46,15 @@ struct Token MakeToken(struct Scanner *scanner, enum TokenType type) {
   C89: 6.1.2 Identifiers
 */
 struct Token ScanIdentifier(struct Scanner *scanner) {
+  struct Token tok;
   char c = Advance(scanner);
   while (isalnum(c) || c == '_') {
     c = Advance(scanner);
   }
   Rollback(scanner, 1);
-  return MakeToken(scanner, TOKEN_TYPE_IDENTIFIER);
+  tok = MakeToken(scanner, TOKEN_TYPE_IDENTIFIER);
+
+  return tok;
 }
 
 /* 
@@ -168,44 +170,27 @@ struct Token ScanStringLiteral(struct Scanner *scanner) {
   }
 }
 
-void SkipBlockComment(struct Scanner *scanner) {
-  for (;;) {
-    char c = Advance(scanner);
-    if (c == '*') {
-      c = Advance(scanner);
-      if (c == '/') {
-        break;
+void SkipBlockComment(struct Scanner *scanner, char *c) {
+  while (CurPtr(scanner) != scanner->source + scanner->source_size) {
+    *c = Advance(scanner);
+    if (*c == '*') {
+      *c = Advance(scanner);
+      if (*c == '/') {
+        scanner->start = CurPtr(scanner);
+        *c = Advance(scanner);
+        return;
       } else Rollback(scanner, 2);
     }
-    else if (c == '\n') {
+    else if (*c == '\n') {
       ++scanner->line;
     }
-
-    if (CurPtr(scanner) == scanner->source + scanner->source_size) {
-      DiagReport(scanner->diag_engine, CurPtr(scanner), DIAG_TYPE_UNTERMINATED_BLOCK_COMMENT);
-      break;
-    }
   }
-  Rollback(scanner, 1);
-  scanner->start = CurPtr(scanner);
+  DiagReport(scanner->diag_engine, CurPtr(scanner), DIAG_TYPE_UNTERMINATED_BLOCK_COMMENT);
 }
 
-struct Token HandleDirective(struct Scanner *scanner) {
+void HandleDirective(struct Scanner *scanner) {
   struct Token tok = Scan(scanner);
-  if (tok.type = TOKEN_TYPE_IDENTIFIER && memcmp(tok.data, "include", 7 * sizeof(char))) {
-    tok = Scan(scanner);
-    if (tok.type == TOKEN_TYPE_STRING_LITERAL) {
-      return tok;
-    }
-    else if (tok.type == TOKEN_TYPE_LESS) {
-      scanner->angled_include = 1;
-      tok = Scan(scanner);
-      if (tok.type == TOKEN_TYPE_HEADER_NAME) {
-        return tok;
-      }
-    }
-    DiagReport(scanner->diag_engine, CurPtr(scanner), DIAG_TYPE_NO_FILE_NAME);
-    return MakeToken(scanner, TOKEN_TYPE_UNKNOWN);
+  if (tok.type == TOKEN_TYPE_IDENTIFIER && memcmp(tok.data, "include", 7 * sizeof(char))) {
   }
 }
 
@@ -242,7 +227,6 @@ struct Token Scan(struct Scanner *scanner) {
         ++scanner->line;
         scanner->start = CurPtr(scanner);
         c = Advance(scanner);
-        scanner->pp_mode = 0;
         break;
       case 'A': case 'B': case 'C': case 'D': case 'E': case 'F': case 'G': case 'H': case 'I': case 'J': case 'K': /* case 'L':*/ case 'M':
       case 'N': case 'O': case 'P': case 'Q': case 'R': case 'S': case 'T': case 'U': case 'V': case 'W': case 'X': case 'Y': case 'Z':
@@ -356,13 +340,15 @@ struct Token Scan(struct Scanner *scanner) {
         c = Advance(scanner);
         switch (c) {
           case '*':
-            SkipBlockComment(scanner);
+            SkipBlockComment(scanner, &c);
+            break;
           case '=':
             return MakeToken(scanner, TOKEN_TYPE_SLASH_EQUAL);
           default:
             Rollback(scanner, 1);
             return MakeToken(scanner, TOKEN_TYPE_SLASH);
         }
+        break;
       case '%':
         c = Advance(scanner);
         if (c == '=') {
@@ -439,7 +425,7 @@ struct Token Scan(struct Scanner *scanner) {
       case '#':
         /* Check if this is preprocessor directive */
         if (is_at_start_of_line) {
-          scanner->pp_mode = 1;
+          HandleDirective(scanner);
         }
         c = Advance(scanner);
         if (c == '#') {
