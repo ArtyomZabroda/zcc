@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <ctype.h>
 #include <stdio.h>
-
+#include <string.h>
 void ScannerInit(struct Scanner *scanner, const char *source, int source_size, struct DiagEngine *diag_engine) {
   scanner->source = source;
   scanner->source_size = source_size;
@@ -12,6 +12,8 @@ void ScannerInit(struct Scanner *scanner, const char *source, int source_size, s
   scanner->current = source;
   scanner->start = scanner->current;
   scanner->line = 1;
+  scanner->is_at_start_of_line = 0;
+  scanner->angled_include = 0;
 }
 
 char Advance(struct Scanner *scanner) {
@@ -44,12 +46,15 @@ struct Token MakeToken(struct Scanner *scanner, enum TokenType type) {
   C89: 6.1.2 Identifiers
 */
 struct Token ScanIdentifier(struct Scanner *scanner) {
+  struct Token tok;
   char c = Advance(scanner);
   while (isalnum(c) || c == '_') {
     c = Advance(scanner);
   }
   Rollback(scanner, 1);
-  return MakeToken(scanner, TOKEN_TYPE_IDENTIFIER);
+  tok = MakeToken(scanner, TOKEN_TYPE_IDENTIFIER);
+
+  return tok;
 }
 
 /* 
@@ -89,27 +94,27 @@ struct Token ScanCharConst(struct Scanner *scanner) {
           c = Advance(scanner);
         }
         Rollback(scanner, 1);
-      }
-      else if (c == 'x') {
+      } else if (c == 'x') {
         c = Advance(scanner);
         if (!isxdigit(c)) {
           Rollback(scanner, 1);
-          DiagReport(scanner->diag_engine, CurPtr(scanner), DIAG_TYPE_INCORRECT_HEX_ESCAPE_SEQUENCE);
+          DiagReport(scanner->diag_engine, CurPtr(scanner),
+                     DIAG_TYPE_INCORRECT_HEX_ESCAPE_SEQUENCE);
           return MakeToken(scanner, TOKEN_TYPE_UNKNOWN);
         }
         while (c >= '0' && c <= '9' && c >= 'a' && c <= 'f') {
           c = Advance(scanner);
         }
         Rollback(scanner, 1);
+      } else if (c != '\'' && c != '\"' && c != '?' && c != '\\' && c != 'a' &&
+                 c != 'b' && c != 'f' && c != 'n' && c != 'r' && c != 't' &&
+                 c != 'v') {
+        Rollback(scanner, 1);
+        DiagReport(scanner->diag_engine, CurPtr(scanner),
+                   DIAG_TYPE_INCORRECT_ESCAPE_SEQUENCE);
+        return MakeToken(scanner, TOKEN_TYPE_UNKNOWN);
       }
-      else if (c != '\'' && c != '\"' && c != '?' && c != '\\' &&
-        c != 'a' && c != 'b' && c != 'f' && c != 'n' && c != 'r' && c != 't' && c != 'v') {
-          Rollback(scanner, 1);
-          DiagReport(scanner->diag_engine, CurPtr(scanner), DIAG_TYPE_INCORRECT_ESCAPE_SEQENCE);
-          return MakeToken(scanner, TOKEN_TYPE_UNKNOWN);
-      }
-    }
-    else if (c == '\n' || c == '\0') {
+    } else if (c == '\n' || c == '\0') {
       Rollback(scanner, 1);
       DiagReport(scanner->diag_engine, CurPtr(scanner), DIAG_TYPE_UNTERMINATED_CHAR_CONST);
       return MakeToken(scanner, TOKEN_TYPE_UNKNOWN);
@@ -119,11 +124,85 @@ struct Token ScanCharConst(struct Scanner *scanner) {
   return MakeToken(scanner, TOKEN_TYPE_CHAR_CONST);
 }
 
+struct Token ScanStringLiteral(struct Scanner *scanner) {
+  char c = Advance(scanner);
+  char terminator = scanner->angled_include ? '>' : '\"';
+  while (c != terminator) {
+    if (c == '\\') {
+      c = Advance(scanner);
+      if (c >= '0' && c < '8') {
+        c = Advance(scanner);
+        while (c >= '0' && c < '8') {
+          c = Advance(scanner);
+        }
+        Rollback(scanner, 1);
+      } else if (c == 'x') {
+        c = Advance(scanner);
+        if (!isxdigit(c)) {
+          Rollback(scanner, 1);
+          DiagReport(scanner->diag_engine, CurPtr(scanner),
+                     DIAG_TYPE_INCORRECT_HEX_ESCAPE_SEQUENCE);
+          return MakeToken(scanner, TOKEN_TYPE_UNKNOWN);
+        }
+        while (c >= '0' && c <= '9' && c >= 'a' && c <= 'f') {
+          c = Advance(scanner);
+        }
+        Rollback(scanner, 1);
+      } else if (c != '\'' && c != '\"' && c != '?' && c != '\\' && c != 'a' &&
+                 c != 'b' && c != 'f' && c != 'n' && c != 'r' && c != 't' &&
+                 c != 'v') {
+        Rollback(scanner, 1);
+        DiagReport(scanner->diag_engine, CurPtr(scanner),
+                   DIAG_TYPE_INCORRECT_ESCAPE_SEQUENCE);
+        return MakeToken(scanner, TOKEN_TYPE_UNKNOWN);
+      }
+    } else if (c == '\n' || c == '\0') {
+      Rollback(scanner, 1);
+      DiagReport(scanner->diag_engine, CurPtr(scanner), DIAG_TYPE_UNTERMINATED_STRING_LITERAL);
+      return MakeToken(scanner, TOKEN_TYPE_UNKNOWN);
+    }
+    c = Advance(scanner);
+  }
+  if (scanner->angled_include) {
+    return MakeToken(scanner, TOKEN_TYPE_HEADER_NAME);
+  } else {
+    return MakeToken(scanner, TOKEN_TYPE_STRING_LITERAL);
+  }
+}
+
+void SkipBlockComment(struct Scanner *scanner, char *c) {
+  while (CurPtr(scanner) != scanner->source + scanner->source_size) {
+    *c = Advance(scanner);
+    if (*c == '*') {
+      *c = Advance(scanner);
+      if (*c == '/') {
+        scanner->start = CurPtr(scanner);
+        *c = Advance(scanner);
+        return;
+      } else Rollback(scanner, 2);
+    }
+    else if (*c == '\n') {
+      ++scanner->line;
+    }
+  }
+  DiagReport(scanner->diag_engine, CurPtr(scanner), DIAG_TYPE_UNTERMINATED_BLOCK_COMMENT);
+}
+
+void HandleDirective(struct Scanner *scanner) {
+  struct Token tok = Scan(scanner);
+  if (tok.type == TOKEN_TYPE_IDENTIFIER && memcmp(tok.data, "include", 7 * sizeof(char))) {
+  }
+}
+
 struct Token Scan(struct Scanner *scanner) {
+  struct Token tok;
   char c;
+  int is_at_start_of_line = scanner->is_at_start_of_line;
+
   scanner->start = CurPtr(scanner);
 
   c = Advance(scanner);
+  scanner->is_at_start_of_line = 0;
 
   for (;;) {
     switch (c) {
@@ -134,6 +213,7 @@ struct Token Scan(struct Scanner *scanner) {
         }
         else {
           DiagReport(scanner->diag_engine, CurPtr(scanner), DIAG_TYPE_NULL_IN_FILE);
+          scanner->start = CurPtr(scanner);
           c = Advance(scanner);
         }
         break;
@@ -159,7 +239,15 @@ struct Token Scan(struct Scanner *scanner) {
         return ScanNumber(scanner);
       case '.':
         c = Advance(scanner);
-        if (isdigit(c)) {
+        if (c == '.') {
+          c = Advance(scanner);
+          if (c == '.') {
+            return MakeToken(scanner, TOKEN_TYPE_ELLIPSIS);
+          } else {
+            Rollback(scanner, 2);
+          }
+        }
+        else if (isdigit(c)) {
           return ScanNumber(scanner);
         } else {
           Rollback(scanner, 1);
@@ -167,6 +255,191 @@ struct Token Scan(struct Scanner *scanner) {
         }
       case '\'':
         return ScanCharConst(scanner);
+      case 'L':
+        c = Advance(scanner);
+        if (c == '\'') {
+          DiagReport(scanner->diag_engine, CurPtr(scanner), DIAG_TYPE_WIDE_CHAR_CONSTANTS_UNSUPPORTED);
+          while (c != '\'') {
+            c = Advance(scanner);
+          }
+          Rollback(scanner, 1);
+          return MakeToken(scanner, TOKEN_TYPE_UNKNOWN);
+        } else if (c == '\"') {
+          DiagReport(scanner->diag_engine, CurPtr(scanner), DIAG_TYPE_WIDE_STRING_LITERALS_UNSUPPORTED);
+          while (c != '\"') {
+            c = Advance(scanner);
+          }
+          Rollback(scanner, 1);
+          return MakeToken(scanner, TOKEN_TYPE_UNKNOWN);
+        } else return ScanIdentifier(scanner);
+        break;
+      case '\"':
+        return ScanStringLiteral(scanner);
+      case '[':
+        return MakeToken(scanner, TOKEN_TYPE_LSQUARE);
+      case ']':
+       return MakeToken(scanner, TOKEN_TYPE_RSQUARE);
+      case '(':
+        return MakeToken(scanner, TOKEN_TYPE_LPAREN);
+      case ')':
+        return MakeToken(scanner, TOKEN_TYPE_RPAREN);
+      case '-':
+        c = Advance(scanner);
+        switch (c) {
+          case '>':
+            return MakeToken(scanner, TOKEN_TYPE_ARROW);
+          case '-':
+            return MakeToken(scanner, TOKEN_TYPE_MINUS_MINUS);
+          case '=':
+            return MakeToken(scanner, TOKEN_TYPE_MINUS_EQUAL);
+          default:
+            Rollback(scanner, 1);
+            return MakeToken(scanner, TOKEN_TYPE_MINUS);
+        }
+      case '+':
+        c = Advance(scanner);
+        switch (c) {
+          case '+':
+            return MakeToken(scanner, TOKEN_TYPE_PLUS_PLUS);
+          case '=':
+            return MakeToken(scanner, TOKEN_TYPE_PLUS_EQUAL);
+          default:
+            Rollback(scanner, 1);
+            return MakeToken(scanner, TOKEN_TYPE_PLUS);
+        }
+      case '&':
+        c = Advance(scanner);
+        switch (c) {
+          case '&':
+            return MakeToken(scanner, TOKEN_TYPE_AMP_AMP);
+          case '=':
+            return MakeToken(scanner, TOKEN_TYPE_AMP_EQUAL);
+          default:
+            Rollback(scanner, 1);
+            return MakeToken(scanner, TOKEN_TYPE_AMP);
+        }
+      case '*':
+        c = Advance(scanner);
+        if (c == '=') {
+          return MakeToken(scanner, TOKEN_TYPE_STAR_EQUAL);
+        } else {
+          Rollback(scanner, 1);
+          return MakeToken(scanner, TOKEN_TYPE_STAR);
+        }
+      case '~':
+        return MakeToken(scanner, TOKEN_TYPE_TILDE);
+      case '!':
+        c = Advance(scanner);
+        if (c == '=') {
+          return MakeToken(scanner, TOKEN_TYPE_EXCLAIM_EQUAL);
+        } else {
+          Rollback(scanner, 1);
+          return MakeToken(scanner, TOKEN_TYPE_EXCLAIM);
+        }
+      case '/':
+        c = Advance(scanner);
+        switch (c) {
+          case '*':
+            SkipBlockComment(scanner, &c);
+            break;
+          case '=':
+            return MakeToken(scanner, TOKEN_TYPE_SLASH_EQUAL);
+          default:
+            Rollback(scanner, 1);
+            return MakeToken(scanner, TOKEN_TYPE_SLASH);
+        }
+        break;
+      case '%':
+        c = Advance(scanner);
+        if (c == '=') {
+          return MakeToken(scanner, TOKEN_TYPE_PERCENT_EQUAL);
+        } else {
+          Rollback(scanner, 1);
+          return MakeToken(scanner, TOKEN_TYPE_PERCENT);
+        }
+      case '<':
+        c = Advance(scanner);
+        switch (c) {
+          case '<':
+            c = Advance(scanner);
+            if (c == '=') {
+              return MakeToken(scanner, TOKEN_TYPE_LESS_LESS_EQUAL);
+            } else {
+              Rollback(scanner, 1);
+              return MakeToken(scanner, TOKEN_TYPE_LESS_LESS);
+            }
+          case '=':
+            return MakeToken(scanner, TOKEN_TYPE_LESS_EQUAL);
+          default:
+            return MakeToken(scanner, TOKEN_TYPE_LESS);
+        }
+        case '>':
+        c = Advance(scanner);
+        switch (c) {
+          case '>':
+            c = Advance(scanner);
+            if (c == '=') {
+              return MakeToken(scanner, TOKEN_TYPE_GREATER_GREATER_EQUAL);
+            } else {
+              Rollback(scanner, 1);
+              return MakeToken(scanner, TOKEN_TYPE_GREATER_GREATER);
+            }
+          case '=':
+            return MakeToken(scanner, TOKEN_TYPE_GREATER_EQUAL);
+          default:
+            return MakeToken(scanner, TOKEN_TYPE_GREATER);
+        }
+      case '=':
+        c = Advance(scanner);
+        if (c == '=') {
+          return MakeToken(scanner, TOKEN_TYPE_EQUAL_EQUAL);
+        } else {
+          Rollback(scanner, 1);
+          return MakeToken(scanner, TOKEN_TYPE_EQUAL);
+        }
+      case '^':
+        c = Advance(scanner);
+        if (c == '=') {
+          return MakeToken(scanner, TOKEN_TYPE_CARET_EQUAL);
+        } else {
+          Rollback(scanner, 1);
+          return MakeToken(scanner, TOKEN_TYPE_CARET);
+        }
+        case '|':
+        c = Advance(scanner);
+        switch (c) {
+          case '|':
+            return MakeToken(scanner, TOKEN_TYPE_PIPE_PIPE);
+          case '=':
+            return MakeToken(scanner, TOKEN_TYPE_PIPE_EQUAL);
+          default:
+            Rollback(scanner, 1);
+            return MakeToken(scanner, TOKEN_TYPE_PIPE);
+        }
+      case '?':
+        return MakeToken(scanner, TOKEN_TYPE_QUESTION);
+      case ':':
+        return MakeToken(scanner, TOKEN_TYPE_COLON);
+      case ',':
+        return MakeToken(scanner, TOKEN_TYPE_COMMA);
+      case '#':
+        /* Check if this is preprocessor directive */
+        if (is_at_start_of_line) {
+          HandleDirective(scanner);
+        }
+        c = Advance(scanner);
+        if (c == '#') {
+          return MakeToken(scanner, TOKEN_TYPE_HASH_HASH);
+        } else {
+          Rollback(scanner, 1);
+          return MakeToken(scanner, TOKEN_TYPE_HASH);
+        }
+      case '{':
+        return MakeToken(scanner, TOKEN_TYPE_LBRACE);
+      case '}':
+        return MakeToken(scanner, TOKEN_TYPE_RBRACE);
+      case ';':
+        return MakeToken(scanner, TOKEN_TYPE_SEMICOLON);
       default:
         return MakeToken(scanner, TOKEN_TYPE_UNKNOWN);
     }

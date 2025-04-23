@@ -9,6 +9,10 @@ jobs:
       - uses: actions/checkout@v4         # checkout the repo
         with:
           submodules: recursive
+      - uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: libcmocka-dev
+          version: 1.0
       - run: |
             make
   test:
@@ -19,7 +23,7 @@ jobs:
           submodules: recursive
       - uses: awalsh128/cache-apt-pkgs-action@latest
         with:
-          packages: valgrind
+          packages: valgrind libcmocka-dev
           version: 1.0
       - run: |
             make test

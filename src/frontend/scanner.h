@@ -11,6 +11,8 @@ struct Scanner {
   const char *start;
   const char *current;
   int line;
+  int is_at_start_of_line;
+  int angled_include;
 };
 
 void ScannerInit(struct Scanner *scanner, const char *source, int source_size, struct DiagEngine *diag_engine);

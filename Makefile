@@ -24,7 +24,7 @@ TESTS_SOURCES_DIR = $(PWD)/tests
 TESTS_SOURCES_PATHS = $(wildcard $(TESTS_SOURCES_DIR)/*.c)
 TESTS_OBJECTS = $(addprefix $(BUILD_DIR)/tests/,$(notdir $(patsubst %.c,%.o,$(TESTS_SOURCES_PATHS))))
 TEST_EXECUTABLES = $(addprefix $(BUILD_DIR)/tests/,$(notdir $(patsubst %.c,%,$(TESTS_SOURCES_PATHS))))
-TESTS_FLAGS = -g -std=c89 -pedantic -O0 -Werror -MMD -MP -L $(BUILD_DIR)
+TESTS_FLAGS = -g -std=gnu89 -pedantic -O0 -Werror -MMD -MP -L $(BUILD_DIR) -Wl,--wrap=DiagReport
 
 .PHONY: all directories clean test
 
@@ -60,7 +60,7 @@ test: directories $(TEST_EXECUTABLES)
 	done
 
 $(TEST_EXECUTABLES): $(BUILD_DIR)/tests/%: $(TESTS_SOURCES_PATHS) $(COMMON) $(FRONTEND)
-	$(CC) $(TESTS_SOURCES_PATHS) $(PWD)/ext/Unity/src/unity.c $(TESTS_FLAGS) -I $(PWD)/ext/Unity/src -I $(COMMON_SOURCES_DIR) -I $(FRONTEND_SOURCES_DIR) -o $@ -lcommon -lfrontend
+	$(CC) $(TESTS_SOURCES_PATHS) $(TESTS_FLAGS) -I $(COMMON_SOURCES_DIR) -I $(FRONTEND_SOURCES_DIR) -o $@ -lcommon -lfrontend -lcmocka
 	
 -include $(wildcard $(BUILD_DIR)/*.d)
 
