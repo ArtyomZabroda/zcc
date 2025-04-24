@@ -1,5 +1,0 @@
-DIAG(DIAG_TYPE_NULL_IN_FILE, "null character was found")
-DIAG(DIAG_TYPE_EMPTY_CHAR_CONST, "empty character constant")
-DIAG(DIAG_TYPE_UNTERMINATED_CHAR_CONST, "missing terminating \' character")
-DIAG(DIAG_TYPE_INCORRECT_HEX_ESCAPE_SEQUENCE, "\\x is used with no following hex digits")
-DIAG(DIAG_TYPE_INCORRECT_ESCAPE_SEQENCE, "incorrect escape sequence")
