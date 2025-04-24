@@ -19,6 +19,7 @@
         "hidden": true,
         "cacheVariables": {
             "CMAKE_C_COMPILER": "gcc",
+            "CMAKE_C_FLAGS": "--coverage",
             "CMAKE_CXX_COMPILER": "g++",
             "CMAKE_CXX_FLAGS": "--coverage",
             "CMAKE_BUILD_TYPE": "Debug"
