@@ -1,0 +1,56 @@
+{
+    "version": 10,
+    "configurePresets": [
+      {
+        "name": "base",
+        "hidden": true,
+        "generator": "Ninja",
+        "binaryDir": "${sourceDir}/build",
+        "toolchainFile": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "cacheVariables": {
+          "CMAKE_EXPORT_COMPILE_COMMANDS": true
+        },
+        "environment": {
+        }
+      },
+      {
+        "name": "linux-base",
+        "inherits": "base",
+        "hidden": true,
+        "cacheVariables": {
+            "CMAKE_C_COMPILER": "gcc",
+            "CMAKE_CXX_COMPILER": "g++",
+            "CMAKE_CXX_FLAGS": "--coverage",
+            "CMAKE_BUILD_TYPE": "Debug"
+          },
+        "condition": {
+            "type": "equals",
+            "lhs": "${hostSystemName}",
+            "rhs": "Linux"
+        }
+      },
+      {
+        "name": "linux-debug",
+        "inherits": "linux-base",
+        "cacheVariables": {
+            "CMAKE_BUILD_TYPE": "Debug"
+        }
+      }
+    ],
+    "buildPresets": [
+        {
+            "name": "default-build-linux",
+            "displayName": "Default",
+            "configurePreset": "linux-debug",
+            "description": "Vanilla build"
+        }
+    ],
+    "testPresets": [
+      {
+        "name": "test-linux",
+        "configurePreset": "linux-debug",
+        "output": {"outputOnFailure": true},
+        "execution": {"noTestsAction": "error", "stopOnFailure": true}
+      }
+    ]
+  }
